@@ -1,38 +1,34 @@
-import { Component, OnDestroy } from '@angular/core';
-import { Subscription } from 'rxjs';
-import { Item, Livro } from 'src/app/models/interfaces';
+import { Component } from '@angular/core';
+import { FormControl } from '@angular/forms';
+import { debounceTime, distinctUntilChanged, filter, map, switchMap, tap } from 'rxjs';
+import { Item } from 'src/app/models/interfaces';
 import { livroVolumeInfo } from 'src/app/models/livroVolumeInfo';
 import { LivroService } from 'src/app/service/livro.service';
 
+const PAUSA = 300;
 @Component({
   selector: 'app-lista-livros',
   templateUrl: './lista-livros.component.html',
   styleUrls: ['./lista-livros.component.css'],
 })
-export class ListaLivrosComponent implements OnDestroy {
-  listaLivros: Livro[];
-  campoBusca: string = '';
-  subscripition: Subscription;
-  livro: Livro;
+export class ListaLivrosComponent {
+  campoBusca = new FormControl();
 
   constructor(private service: LivroService) {}
 
-  buscarLivros() {
-    this.service.buscar(this.campoBusca).subscribe({
-      next: (items) => {
-        this.listaLivros = this.livrosResultadoParaLivros(items);
-      },
-      error: (erro) => console.error(erro),
-    });
-  }
+  livrosEncontrados$ = this.campoBusca.valueChanges.pipe(
+    debounceTime(PAUSA),
+    filter((valorDigitado) => valorDigitado.length >= 3),
+    tap((retornoAPI) => console.log(retornoAPI)),
+    distinctUntilChanged(),
+    switchMap((valorDigitado) => this.service.buscar(valorDigitado)),
+    tap(() => console.log('Fluxo final')),
+    map((items) => this.livrosResultadoParaLivros(items))
+  );
 
   livrosResultadoParaLivros(items: Item[]): livroVolumeInfo[] {
     return items.map((item) => {
       return new livroVolumeInfo(item);
     });
-  }
-
-  ngOnDestroy() {
-    this.subscripition.unsubscribe();
   }
 }
